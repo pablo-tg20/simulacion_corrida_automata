@@ -1,0 +1,749 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Corrida del Autómata</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: control bar fijo arriba; código a la izquierda (fijo al hacer scroll), explicación + variables + mapa a la derecha; tabla de prueba de escritorio abajo. */
+:root{
+  --bg:#EDF1F5; --surface:#FFFFFF; --surface-2:#F5F8FA; --ink:#15202B; --muted:#586775; --line:#D3DCE4;
+  --accent:#0B7A78; --accent-ink:#FFFFFF; --accent-soft:#D6F0EE;
+  --mark-bg:#FFF0A3; --mark-ink:#8A6200; --edge:#9AA8B5;
+  --ok:#1D8048; --ok-soft:#DDF3E5; --bad:#C2410C; --bad-soft:#FDE7DB;
+  --kw:#8B3FA8; --str:#A3501F; --fn:#1D5FB8; --self:#0B7A78;
+  --term-bg:#18222C; --term-fg:#E3EAF0; --term-dim:#8FA0AE;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-code:"JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E141A; --surface:#151E27; --surface-2:#1A2530; --ink:#E4EBF1; --muted:#97A6B3; --line:#2A3846;
+  --accent:#3FC4BF; --accent-ink:#06201F; --accent-soft:#143A39;
+  --mark-bg:#4A4012; --mark-ink:#FFD84D; --edge:#5B6B79;
+  --ok:#4ADE80; --ok-soft:#163824; --bad:#FB923C; --bad-soft:#3D2414;
+  --kw:#D2A8FF; --str:#F2B880; --fn:#7CB8FF; --self:#5ED6D1;
+  --term-bg:#0A0F14; --term-fg:#E3EAF0; --term-dim:#7F909E; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0E141A; --surface:#151E27; --surface-2:#1A2530; --ink:#E4EBF1; --muted:#97A6B3; --line:#2A3846;
+  --accent:#3FC4BF; --accent-ink:#06201F; --accent-soft:#143A39;
+  --mark-bg:#4A4012; --mark-ink:#FFD84D; --edge:#5B6B79;
+  --ok:#4ADE80; --ok-soft:#163824; --bad:#FB923C; --bad-soft:#3D2414;
+  --kw:#D2A8FF; --str:#F2B880; --fn:#7CB8FF; --self:#5ED6D1;
+  --term-bg:#0A0F14; --term-fg:#E3EAF0; --term-dim:#7F909E; color-scheme:dark;}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15.5px;line-height:1.55}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1380px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+code{font-family:var(--f-code);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:0 .3em;white-space:nowrap}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+
+header.top{padding-block:22px 16px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px 32px;align-items:end}
+header.top h1{font-size:clamp(1.6rem,3.2vw,2.3rem);letter-spacing:-.01em}
+header.top p{margin:.4rem 0 0;color:var(--muted);max-width:62ch}
+.eyebrow{font-size:.74rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.inputbox label{display:block;font-weight:700;margin-bottom:6px}
+.inrow{display:flex;gap:8px;flex-wrap:wrap}
+#cad{flex:1 1 180px;min-width:0;font-family:var(--f-code);font-size:1.15rem;padding:9px 12px;border:2px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);letter-spacing:.12em}
+#cad:focus{outline:none;border-color:var(--accent)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
+.chips span{font-size:.82rem;color:var(--muted)}
+.chip{font-family:var(--f-code);font-size:.85rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:3px 10px;border-radius:999px;cursor:pointer}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.hint{font-size:.83rem;color:var(--muted);margin-top:6px}
+
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-block:1px solid var(--line)}
+.bar .wrap{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding-block:10px}
+.btns{display:flex;gap:6px}
+button.ctl{font-family:var(--f-body);font-weight:700;font-size:.92rem;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);border-radius:8px;padding:8px 12px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+button.ctl:hover:not(:disabled){border-color:var(--accent)}
+button.ctl:disabled{opacity:.45;cursor:default}
+button.ctl.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);min-width:132px;justify-content:center}
+button:focus-visible,input:focus-visible,.chip:focus-visible{outline:3px solid var(--mark-ink);outline-offset:2px}
+.speed{display:flex;align-items:center;gap:8px;font-size:.88rem}
+.speed output{min-width:7.5em;font-weight:700}
+.prog{flex:1 1 220px;display:flex;align-items:center;gap:10px;min-width:0}
+.prog input{flex:1;min-width:0;accent-color:var(--accent)}
+.prog .cnt{font-variant-numeric:tabular-nums;font-size:.88rem;color:var(--muted);white-space:nowrap}
+input[type=range]{accent-color:var(--accent)}
+
+main.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);grid-template-areas:"code expl" "code side";gap:18px;padding-block:18px 8px;align-items:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-width:0}
+.card>.hd{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:12px 16px 8px;flex-wrap:wrap}
+.card>.hd h3{font-size:1rem}
+.card>.hd .sub{font-size:.8rem;color:var(--muted)}
+
+/* Código */
+.codecard{grid-area:code;position:sticky;top:calc(env(safe-area-inset-top,0px) + 74px)}
+.code{position:relative;max-height:calc(100vh - 170px);overflow:auto;border-top:1px solid var(--line);padding-block:8px;background:var(--surface-2);border-radius:0 0 12px 12px}
+.ln{display:grid;grid-template-columns:2.8em 1.4em max-content;font-family:var(--f-code);font-size:13.2px;line-height:1.75;white-space:pre;min-width:max-content;padding-right:16px}
+.ln .no{color:var(--muted);text-align:right;padding-right:6px;opacity:.7;font-variant-numeric:tabular-nums}
+.ln .ar{color:var(--mark-ink);text-align:center;font-size:11px}
+.ln.on{background:var(--mark-bg)}
+.ln.on .no{opacity:1;color:var(--ink);font-weight:600}
+.ln.focus .tx{font-weight:600}
+.kw{color:var(--kw);font-weight:600}.st{color:var(--str)}.fn{color:var(--fn)}.sf{color:var(--self);font-style:italic}
+
+/* Explicación */
+.expl{grid-area:expl;padding:16px 18px 18px;border-left:5px solid var(--mark-ink)}
+.expl .meta{display:flex;gap:8px 12px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+.pill{font-size:.75rem;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--mark-bg);color:var(--ink);font-family:var(--f-code)}
+.where{font-size:.82rem;color:var(--muted)}
+.where b{color:var(--ink)}
+.expl h2{font-size:clamp(1.25rem,2.2vw,1.55rem);margin:2px 0 8px}
+.expl .body p{margin:0 0 .6em;max-width:66ch}
+.expl .tip{background:var(--accent-soft);border-radius:8px;padding:8px 12px;font-size:.92rem}
+.expl .tip b{color:var(--accent)}
+.verdict{display:inline-block;font-family:var(--f-display);font-weight:700;padding:4px 12px;border-radius:8px;margin-top:4px}
+.verdict.ok{background:var(--ok-soft);color:var(--ok)}
+.verdict.bad{background:var(--bad-soft);color:var(--bad)}
+
+.side{grid-area:side;display:grid;gap:18px;min-width:0}
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+
+/* Variables */
+.frames{padding:0 12px 12px;display:grid;gap:8px}
+.frame{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.frame .ft{font-size:.78rem;font-weight:700;padding:5px 10px;background:var(--surface-2);color:var(--muted);border-bottom:1px solid var(--line)}
+.frame.top .ft{background:var(--accent-soft);color:var(--accent)}
+.frame table{width:100%;border-collapse:collapse;font-family:var(--f-code);font-size:12.6px}
+.frame td{padding:4px 10px;border-top:1px solid var(--line);vertical-align:top}
+.frame tr:first-child td{border-top:0}
+.frame td:first-child{color:var(--muted);width:42%;white-space:nowrap}
+.frame td:last-child{word-break:break-word}
+.frame tr.chg td{background:var(--mark-bg)}
+.frame tr.chg td:first-child{color:var(--ink)}
+.empty{font-size:.85rem;color:var(--muted);padding:6px 10px}
+
+/* Cinta y consola */
+.tapebox{padding:0 16px 14px}
+.tape{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.cell{width:34px;height:40px;border:2px solid var(--line);border-radius:6px;display:grid;place-items:center;font-family:var(--f-code);font-size:1.05rem;font-weight:600;position:relative;background:var(--surface)}
+.cell small{position:absolute;bottom:-17px;font-size:10px;color:var(--muted);font-weight:400}
+.cell.read{color:var(--muted);background:var(--surface-2)}
+.cell.now{border-color:var(--mark-ink);background:var(--mark-bg);color:var(--ink)}
+.cell.bad{border-color:var(--bad);background:var(--bad-soft)}
+.tape-note{font-size:.85rem;color:var(--muted);margin-top:22px}
+.console{margin:0 12px 12px;background:var(--term-bg);color:var(--term-fg);border-radius:8px;font-family:var(--f-code);font-size:12.8px;padding:10px 12px;min-height:84px;overflow-x:auto;white-space:pre}
+.console .dim{color:var(--term-dim)}
+.console .in{color:#FFD84D}
+
+/* Mapa */
+.mapwrap{display:flex;flex-wrap:wrap;gap:14px;padding:0 14px 14px;align-items:flex-start}
+.svgbox{flex:1 1 300px;min-width:0;max-width:460px}
+.svgbox svg{width:100%;height:auto;display:block}
+.edge{fill:none;stroke:var(--edge);stroke-width:1.6}
+.edge.lit{stroke:var(--accent);opacity:.75}
+.edge.on{stroke:var(--accent);stroke-width:3.2}
+.edge.cand{stroke:var(--mark-ink);stroke-width:2.6;stroke-dasharray:6 5}
+.elab{font-family:var(--f-code);font-size:12px;fill:var(--muted)}
+.elab.on{fill:var(--accent);font-weight:700;font-size:14px}
+.elab.cand{fill:var(--mark-ink);font-weight:700}
+.node circle{fill:var(--surface);stroke:var(--ink);stroke-width:1.6}
+.node text{font-family:var(--f-code);font-size:14px;font-weight:600;fill:var(--ink);text-anchor:middle;dominant-baseline:central}
+.node.cur circle.o{fill:var(--accent);stroke:var(--accent)}
+.node.cur circle.i{stroke:var(--accent-ink)}
+.node.cur text{fill:var(--accent-ink)}
+.node.cand circle.o{stroke:var(--mark-ink);stroke-width:3;stroke-dasharray:5 4}
+.node.hl circle.o{fill:var(--mark-bg);stroke:var(--mark-ink);stroke-width:3}
+.node.ok circle.o{fill:var(--ok);stroke:var(--ok)}
+.node.bad circle.o{fill:var(--bad);stroke:var(--bad)}
+.node.ok text,.node.bad text{fill:var(--surface)}
+.node.ok circle.i,.node.bad circle.i{stroke:var(--surface)}
+.axis{font-size:12px;fill:var(--muted);font-family:var(--f-body)}
+.axis.b{font-weight:700;fill:var(--ink)}
+.pulse{font-family:var(--f-code);font-size:13px;font-weight:700;fill:var(--accent)}
+.legend{font-size:.82rem;color:var(--muted);padding:0 16px 14px;margin:0}
+
+.lookup{flex:0 1 220px;min-width:0}
+.lookup table{border-collapse:collapse;font-family:var(--f-code);font-size:12.5px;width:100%}
+.lookup th,.lookup td{border:1px solid var(--line);padding:3px 8px;text-align:center}
+.lookup th{background:var(--surface-2);color:var(--muted);font-weight:600}
+.lookup caption{caption-side:top;text-align:left;font-size:.8rem;color:var(--muted);padding-bottom:4px;font-family:var(--f-body)}
+.lookup tr.row td,.lookup tr.row th{background:var(--accent-soft)}
+.lookup td.cell-on{background:var(--mark-bg)!important;font-weight:700;outline:2px solid var(--mark-ink);outline-offset:-2px}
+.lookup.all td{background:var(--accent-soft)}
+
+/* Tabla de prueba de escritorio */
+section.below{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:18px;padding-block:0 32px}
+.tablewrap{overflow-x:auto;padding:0 12px 12px}
+table.desk{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+table.desk th{font-size:.74rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:2px solid var(--line);white-space:nowrap}
+table.desk td{padding:6px 8px;border-bottom:1px solid var(--line);font-family:var(--f-code);white-space:nowrap}
+table.desk tr.now td{background:var(--mark-bg)}
+table.desk td.bad{color:var(--bad);font-weight:700}
+.rule{padding:0 18px 16px}
+.rule p{margin:0 0 .6em}
+.rule ul{margin:.2em 0 .8em;padding-left:1.2em}
+.rule li{margin-bottom:.25em}
+
+@media (max-width:1020px){
+  main.grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"expl" "code" "side"}
+  .codecard{position:static}
+  .code{max-height:330px}
+  header.top{grid-template-columns:minmax(0,1fr)}
+  section.below{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:620px){
+  .pair{grid-template-columns:minmax(0,1fr)}
+  .speed{flex:1 1 100%}
+  .speed input{flex:1}
+  button.ctl .lbl{display:none}
+  button.ctl.primary .lbl{display:inline}
+  .cell{width:30px;height:36px}
+}
+@media (prefers-reduced-motion:no-preference){
+  .ln,.frame tr td,.cell,.node circle,.edge{transition:background-color .25s,fill .25s,stroke .25s}
+}
+</style>
+
+<header class="wrap top">
+  <div>
+    <div class="eyebrow">Prueba de escritorio · Python</div>
+    <h1>Corrida del Autómata</h1>
+    <p>Mira cómo Python ejecuta el programa línea por línea. La línea amarilla es lo que está pasando ahora; a la derecha se explica en palabras simples, sin necesidad de saber programar.</p>
+  </div>
+  <div class="inputbox">
+    <label for="cad">Cadena que se escribe en <code>input()</code></label>
+    <div class="inrow">
+      <input id="cad" type="text" value="abab" maxlength="16" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="chips">
+      <span>Ejemplos:</span>
+      <button class="chip" data-v="abab">abab</button>
+      <button class="chip" data-v="caabcbc">caabcbc</button>
+      <button class="chip" data-v="aab">aab</button>
+      <button class="chip" data-v="abxa">abxa</button>
+      <button class="chip" data-v="">(vacía)</button>
+    </div>
+    <div class="hint">Letras válidas: a, b, c. Escribe otra letra para ver qué pasa cuando no existe la transición.</div>
+  </div>
+</header>
+
+<div class="bar">
+  <div class="wrap">
+    <div class="btns">
+      <button class="ctl" id="bReset" title="Volver al inicio"><span aria-hidden="true">⏮</span><span class="lbl">Inicio</span></button>
+      <button class="ctl" id="bPrev" title="Paso anterior (←)"><span aria-hidden="true">◀</span><span class="lbl">Anterior</span></button>
+      <button class="ctl primary" id="bPlay" title="Reproducir / pausar (espacio)"><span aria-hidden="true" id="playIco">▶</span><span class="lbl" id="playLbl">Automático</span></button>
+      <button class="ctl" id="bNext" title="Paso siguiente (→)"><span class="lbl">Siguiente</span><span aria-hidden="true">▶</span></button>
+    </div>
+    <label class="speed" for="speed">Velocidad <input id="speed" type="range" min="1" max="5" step="1" value="2"><output id="speedOut">Lenta</output></label>
+    <div class="prog"><input id="scrub" type="range" min="0" max="1" value="0" aria-label="Ir a un paso"><span class="cnt" id="cnt">Paso 1 de 1</span></div>
+  </div>
+</div>
+
+<main class="wrap grid">
+  <section class="card codecard" aria-label="Código">
+    <div class="hd"><h3>Código</h3><span class="sub">automata.py · sin comentarios</span></div>
+    <div class="code" id="code"></div>
+  </section>
+
+  <section class="card expl" aria-live="polite">
+    <div class="meta"><span class="pill" id="xLine">Línea 1</span><span class="where" id="xWhere"></span></div>
+    <h2 id="xTitle"></h2>
+    <div class="body" id="xBody"></div>
+  </section>
+
+  <div class="side">
+    <div class="pair">
+      <section class="card">
+        <div class="hd"><h3>Variables</h3><span class="sub">lo que Python recuerda</span></div>
+        <div class="frames" id="frames"></div>
+      </section>
+      <div style="display:grid;gap:18px;align-content:start;min-width:0">
+        <section class="card">
+          <div class="hd"><h3>Cadena</h3><span class="sub">letra que se lee</span></div>
+          <div class="tapebox" id="tape"></div>
+        </section>
+        <section class="card">
+          <div class="hd"><h3>Pantalla</h3><span class="sub">lo que ve el usuario</span></div>
+          <div class="console" id="console"></div>
+        </section>
+      </div>
+    </div>
+
+    <section class="card">
+      <div class="hd"><h3>Mapa del autómata</h3><span class="sub">la ficha de color es el estado actual</span></div>
+      <div class="mapwrap">
+        <div class="svgbox"><svg id="svg" viewBox="0 0 450 400" role="img" aria-label="Diagrama de estados p0 a p8"></svg></div>
+        <div class="lookup" id="lookup"></div>
+      </div>
+      <p class="legend">Flechas horizontales: letra <b>a</b>. Flechas verticales: letra <b>b</b>. La letra <b>c</b> regresa al mismo estado (no se dibuja para no saturar). El doble círculo marca la meta, p8.</p>
+    </section>
+  </div>
+</main>
+
+<section class="wrap below">
+  <section class="card">
+    <div class="hd"><h3>Tabla de prueba de escritorio</h3><span class="sub">una fila por cada vuelta del ciclo for</span></div>
+    <div class="tablewrap"><table class="desk" id="desk"></table></div>
+  </section>
+  <section class="card">
+    <div class="hd"><h3>¿Qué cadenas acepta?</h3></div>
+    <div class="rule">
+      <p>Los estados forman una cuadrícula de 3 × 3. La <b>columna</b> cuenta las letras <b>a</b> y el <b>renglón</b> cuenta las letras <b>b</b>:</p>
+      <ul>
+        <li>Sin ninguna, impar, o par (2, 4, 6…).</li>
+        <li>La <b>c</b> no mueve la ficha, así que no importa cuántas haya.</li>
+        <li>Cualquier otra letra (x, d, espacio…) rechaza la cadena de inmediato.</li>
+      </ul>
+      <p>La meta p8 es la esquina “a par, b par”. Entonces la cadena se acepta si tiene <b>un número par de a (al menos 2)</b> y <b>un número par de b (al menos 2)</b>, usando solo a, b y c.</p>
+      <p style="color:var(--muted);font-size:.9rem">Ejemplos: <code>abab</code> y <code>caabcbc</code> se aceptan; <code>aab</code> (una sola b) y <code>ab</code> no; la cadena vacía tampoco, porque se queda en p0.</p>
+    </div>
+  </section>
+</section>
+
+<script>
+const CODE = [
+"class Automata:",
+"    def __init__(self):",
+"        self.transiciones = {",
+"            'p0': {'a': 'p1', 'b': 'p3', 'c': 'p0'},",
+"            'p1': {'a': 'p2', 'b': 'p4', 'c': 'p1'},",
+"            'p2': {'a': 'p1', 'b': 'p5', 'c': 'p2'},",
+"            'p3': {'a': 'p4', 'b': 'p6', 'c': 'p3'},",
+"            'p4': {'a': 'p5', 'b': 'p7', 'c': 'p4'},",
+"            'p5': {'a': 'p4', 'b': 'p8', 'c': 'p5'},",
+"            'p6': {'a': 'p7', 'b': 'p3', 'c': 'p6'},",
+"            'p7': {'a': 'p8', 'b': 'p4', 'c': 'p7'},",
+"            'p8': {'a': 'p7', 'b': 'p5', 'c': 'p8'}",
+"        }",
+"",
+"        self.estado_inicial = 'p0'",
+"        self.estado_final = 'p8'",
+"",
+"    def mover(self, estado, simbolo):",
+"        return self.transiciones.get(estado, {}).get(simbolo)",
+"",
+"    def es_final(self, estado):",
+"        return estado == self.estado_final",
+"",
+"    def evaluar(self, cadena):",
+"        estado = self.estado_inicial",
+"        recorrido: list[str] = [estado]",
+"        for simbolo in cadena:",
+"            siguiente = self.mover(estado, simbolo)",
+"            if siguiente is None:",
+"                return recorrido, False",
+"            estado = siguiente",
+"            recorrido.append(estado)",
+"        return recorrido, self.es_final(estado)",
+"",
+"",
+"if __name__ == '__main__':",
+"    automata = Automata()",
+"    cadena = input('Ingrese la cadena: ')",
+"    recorrido, aceptada = automata.evaluar(cadena)",
+"    print('Recorrido:', ' -> '.join(recorrido))",
+"    print(",
+"        'La cadena es aceptada'",
+"        if aceptada",
+"        else 'La cadena no es aceptada'",
+"    )"
+];
+const T = {
+  p0:{a:'p1',b:'p3',c:'p0'}, p1:{a:'p2',b:'p4',c:'p1'}, p2:{a:'p1',b:'p5',c:'p2'},
+  p3:{a:'p4',b:'p6',c:'p3'}, p4:{a:'p5',b:'p7',c:'p4'}, p5:{a:'p4',b:'p8',c:'p5'},
+  p6:{a:'p7',b:'p3',c:'p6'}, p7:{a:'p8',b:'p4',c:'p7'}, p8:{a:'p7',b:'p5',c:'p8'}
+};
+const STATES = Object.keys(T);
+const FRAME_LABEL = {main:'Programa principal', init:'Dentro de __init__ · se arma el autómata', evaluar:'Dentro de evaluar()', mover:'Dentro de mover()', es_final:'Dentro de es_final()'};
+const FRAME_SHORT = {main:'Programa principal', init:'__init__()', evaluar:'evaluar()', mover:'mover()', es_final:'es_final()'};
+
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function rep(v){
+  if (v === null) return 'None';
+  if (v === true) return 'True';
+  if (v === false) return 'False';
+  if (typeof v === 'string') return v.includes("'") ? '"'+v+'"' : "'"+v+"'";
+  if (Array.isArray(v)) return '[' + v.map(rep).join(', ') + ']';
+  if (v && v.__txt) return v.__txt;
+  return String(v);
+}
+const q = v => '<code>' + esc(rep(v)) + '</code>';
+const c = s => '<code>' + esc(s) + '</code>';
+
+/* ---------- Generador de pasos (simula la ejecución real) ---------- */
+function build(cad){
+  const steps = [];
+  const S = {frames:[{id:'main',vars:{}}], out:[], tapeOn:false, tape:-1, read:0, badIdx:-1,
+             cur:null, cand:null, candEdge:null, edge:null, pulse:null, hl:null, allEdges:false,
+             look:null, lookAll:false, rows:[], row:-1, verdict:null};
+  const F = id => S.frames.find(f => f.id === id);
+  const add = (range, focus, title, html) => {
+    steps.push(JSON.parse(JSON.stringify({range, focus, title, html, ...S})));
+    S.edge = null; S.pulse = null; S.hl = null; S.allEdges = false; S.look = null; S.lookAll = false;
+  };
+  const n = cad.length;
+
+  add([1,33],1,'Python lee el plano del autómata',
+    `<p>Antes de hacer cualquier cosa, Python lee de corrido la clase ${c('Automata')}. Una clase es como un <b>plano</b> o un molde: describe cómo será el autómata y qué sabrá hacer (${c('mover')}, ${c('es_final')} y ${c('evaluar')}).</p>
+     <p>Leer el plano no construye nada ni ejecuta esas funciones. Por eso Python se salta todo este bloque y busca dónde empieza el programa de verdad.</p>
+     <p class="tip"><b>Idea clave:</b> <code>def</code> solo define una función (le pone nombre a una receta). La receta se cocina hasta que alguien la llama.</p>`);
+
+  add([36,36],36,'¿Se abrió este archivo directamente?',
+    `<p>Esta línea pregunta si el archivo se ejecutó directamente (por ejemplo, con el botón <i>Run</i>). En este caso sí, la respuesta es <b>verdadero</b> y Python entra al bloque de abajo.</p>
+     <p>Si otro programa solo estuviera usando la clase, este bloque no correría. Es como decir: “estas instrucciones son solo para cuando me abren a mí”.</p>`);
+
+  add([37,37],37,'Fabricar el autómata',
+    `<p>Aquí se usa el plano para construir un autómata real. Escribir ${c('Automata()')} hace que Python salte automáticamente a la función especial ${c('__init__')}, que prepara todo lo que el autómata necesita saber.</p>`);
+
+  S.frames.push({id:'init', vars:{}});
+  add([2,2],2,'Entramos a __init__',
+    `<p>${c('__init__')} es el <b>instructivo de armado</b>. Se ejecuta una sola vez, justo cuando nace el objeto.</p>
+     <p class="tip"><b>¿Qué es self?</b> Significa “este autómata en particular”. Todo lo que se guarde como ${c('self.algo')} queda guardado dentro de él para usarlo después.</p>`);
+
+  F('init').vars['self.transiciones'] = {__txt:'{ p0 … p8 }  (9 estados)'};
+  S.allEdges = true; S.lookAll = true;
+  add([3,13],3,'Se guarda el mapa de transiciones',
+    `<p>Esto es el mapa del autómata. Cada renglón dice: <b>si estoy en este estado y leo esta letra, ¿a qué estado me muevo?</b></p>
+     <p>Ejemplo: en el renglón de ${q('p0')}, con ${q('a')} se va a ${q('p1')}, con ${q('b')} se va a ${q('p3')} y con ${q('c')} se queda en ${q('p0')}.</p>
+     <p class="tip"><b>Idea clave:</b> es un diccionario dentro de otro diccionario. Primero buscas el estado (el renglón) y luego la letra (la columna). Míralo en la tabla junto al mapa.</p>`);
+
+  F('init').vars['self.estado_inicial'] = 'p0'; S.hl = 'p0';
+  add([15,15],15,'Casilla de inicio: p0',
+    `<p>Se anota que todo recorrido empieza en la casilla ${q('p0')}. En el mapa es la esquina de arriba a la izquierda.</p>`);
+
+  F('init').vars['self.estado_final'] = 'p8'; S.hl = 'p8';
+  add([16,16],16,'Casilla meta: p8',
+    `<p>Se anota cuál es la meta. Si al terminar de leer la cadena el autómata está en ${q('p8')}, la cadena <b>se acepta</b>. Si termina en cualquier otra casilla, <b>se rechaza</b>.</p>`);
+
+  S.frames.pop();
+  F('main').vars.automata = {__txt:'<objeto Automata>'};
+  add([37,37],37,'El autómata está listo',
+    `<p>Terminó ${c('__init__')} y Python regresa a la línea desde donde lo llamaron. El autómata ya armado se guarda en la variable ${c('automata')}.</p>`);
+
+  F('main').vars.cadena = cad; S.tapeOn = true;
+  S.out.push({t:'Ingrese la cadena: ', i:cad});
+  add([38,38],38,'Se pide la cadena',
+    `<p>${c('input')} muestra el mensaje <i>Ingrese la cadena:</i> y espera a que la persona escriba algo y presione Enter.</p>
+     <p>${n ? `En esta simulación se escribió ${q(cad)}. Ese texto queda guardado en la variable ${c('cadena')}.` : `En esta simulación no se escribió nada, así que ${c('cadena')} queda vacía: ${q('')}.`}</p>`);
+
+  add([39,39],39,'Pedirle al autómata que revise la cadena',
+    `<p>Python salta a la función ${c('evaluar')} y le entrega la cadena.</p>
+     <p>Cuando termine, ${c('evaluar')} devolverá <b>dos cosas</b>: el camino que recorrió y si la cadena se acepta o no. Esas dos cosas se guardarán en ${c('recorrido')} y ${c('aceptada')}.</p>`);
+
+  S.frames.push({id:'evaluar', vars:{cadena:cad}});
+  add([24,24],24,'Dentro de evaluar',
+    `<p>Ahora estamos dentro de ${c('evaluar')}, con ${c('cadena')} = ${q(cad)}.</p>
+     <p>La idea es como un juego de mesa: poner una <b>ficha</b> en la casilla de inicio y moverla una vez por cada letra de la cadena.</p>`);
+
+  const E = F('evaluar').vars;
+  E.estado = 'p0'; S.cur = 'p0';
+  add([25,25],25,'La ficha se coloca en p0',
+    `<p>La variable ${c('estado')} dice en qué casilla está la ficha en este momento. Arranca en el estado inicial: ${q('p0')}.</p>`);
+
+  E.recorrido = ['p0'];
+  add([26,26],26,'Empieza la bitácora del recorrido',
+    `<p>${c('recorrido')} es una <b>lista</b>: una bitácora donde se anotan todas las casillas visitadas, en orden. Ya trae la primera: ${q('p0')}.</p>
+     <p class="tip"><b>Nota:</b> ${c(': list[str]')} solo es una etiqueta que avisa “esto será una lista de textos”. No cambia cómo funciona.</p>`);
+
+  let rejected = false;
+  for (let i = 0; i < n; i++){
+    const ch = cad[i], est = E.estado;
+    E.simbolo = ch; S.tape = i; S.read = i;
+    const row = {n:i+1, sim:ch, antes:est, sig:'', desp:'', rec:''};
+    S.rows.push(row); S.row = i;
+    add([27,27],27,`Vuelta ${i+1}: se lee la letra ${rep(ch)}`,
+      `<p>El ciclo ${c('for')} toma las letras de la cadena <b>una por una</b>, de izquierda a derecha. En esta vuelta toca la letra número ${i+1}: ${q(ch)}, y se guarda en ${c('simbolo')}.</p>
+       ${i===0 ? `<p class="tip"><b>Idea clave:</b> todas las líneas que están más adentro (con más espacio a la izquierda) se repiten una vez por cada letra.</p>` : ''}`);
+
+    add([28,28],28,'¿A qué casilla me muevo?',
+      `<p>Para saberlo, se le pregunta a la función ${c('mover')}, entregándole la casilla actual (${q(est)}) y la letra (${q(ch)}). Python salta a ${c('mover')}.</p>`);
+
+    S.frames.push({id:'mover', vars:{estado:est, simbolo:ch}});
+    add([18,18],18,'Dentro de mover',
+      `<p>${c('mover')} recibe dos datos: ${c('estado')} = ${q(est)} y ${c('simbolo')} = ${q(ch)}. Su único trabajo es consultar la tabla.</p>`);
+
+    const nxt = (T[est] && T[est][ch] !== undefined) ? T[est][ch] : null;
+    S.look = {s:est, c:ch};
+    if (nxt !== null){ S.cand = nxt; S.candEdge = nxt !== est ? est+'-'+ch : null; }
+    add([19,19],19,'Buscar en la tabla',
+      nxt !== null
+      ? `<p>Primero busca el renglón de ${q(est)}: ${c("{'a': '"+T[est].a+"', 'b': '"+T[est].b+"', 'c': '"+T[est].c+"'}")}.</p>
+         <p>Luego, en ese renglón, busca la letra ${q(ch)}. El resultado es ${q(nxt)}. Con ${c('return')} la función <b>devuelve</b> ese valor a quien preguntó.</p>`
+      : `<p>Busca el renglón de ${q(est)} y ahí busca la letra ${q(ch)}… pero <b>esa letra no existe</b> en la tabla.</p>
+         <p>Cuando ${c('.get')} no encuentra algo, en lugar de marcar error devuelve ${c('None')}, que en Python significa <b>“nada”</b>.</p>`);
+
+    S.frames.pop();
+    E.siguiente = nxt; row.sig = rep(nxt);
+    add([28,28],28,`siguiente = ${rep(nxt)}`,
+      `<p>De regreso en ${c('evaluar')}, la respuesta de ${c('mover')} se guarda en la variable ${c('siguiente')}.</p>
+       <p>${nxt !== null ? 'Todavía no se mueve la ficha: solo sabemos a dónde iría.' : 'Como vale None, no hay a dónde ir.'}</p>`);
+
+    if (nxt === null){
+      S.badIdx = i;
+      add([29,29],29,'¿Hubo respuesta? No',
+        `<p>Se revisa si ${c('siguiente')} es ${c('None')}. <b>Sí lo es</b>: la letra ${q(ch)} no tiene camino desde ${q(est)}. La condición es verdadera, así que Python entra a la línea de adentro.</p>`);
+      row.desp = '—'; row.rec = 'rechazo';
+      S.frames.pop();
+      const recCopy = E.recorrido.slice();
+      add([30,30],30,'Rechazo inmediato',
+        `<p>${c('return')} termina ${c('evaluar')} <b>en ese mismo momento</b>, aunque queden letras sin leer.</p>
+         <p>Devuelve el recorrido que llevaba (${q(recCopy)}) y ${c('False')}, que significa “no aceptada”.</p>`);
+      F('main').vars.recorrido = recCopy; F('main').vars.aceptada = false;
+      S.cand = null; S.candEdge = null; S.tape = -1;
+      add([39,39],39,'Se guardan los resultados',
+        `<p>De regreso en el programa principal, las dos respuestas se reparten: la lista va a ${c('recorrido')} y ${c('False')} va a ${c('aceptada')}.</p>`);
+      rejected = true; break;
+    }
+
+    add([29,29],29,'¿Hubo respuesta? Sí',
+      `<p>Se revisa si ${c('siguiente')} es ${c('None')} (o sea, si la letra no tenía camino). Como vale ${q(nxt)}, la condición es <b>falsa</b> y Python se salta la línea de adentro (el ${c('return')}).</p>`);
+
+    if (nxt !== est){ S.edge = est+'-'+ch; } else { S.pulse = est; }
+    E.estado = nxt; S.cur = nxt; S.cand = null; S.candEdge = null; row.desp = nxt;
+    add([31,31],31, nxt !== est ? `La ficha se mueve: ${est} → ${nxt}` : `La ficha se queda en ${est}`,
+      nxt !== est
+      ? `<p>Ahora sí: ${c('estado')} deja de valer ${q(est)} y pasa a valer ${q(nxt)}. En el mapa la ficha avanza por la flecha ${q(ch)}.</p>`
+      : `<p>Con la letra ${q('c')} el estado no cambia: ${c('estado')} sigue valiendo ${q(nxt)}. Es una flecha que sale y regresa a la misma casilla.</p>`);
+
+    E.recorrido.push(nxt); row.rec = E.recorrido.join(' → ');
+    add([32,32],32,`Se anota ${nxt} en la bitácora`,
+      `<p>${c('append')} agrega ${q(nxt)} al <b>final</b> de la lista ${c('recorrido')}.</p>
+       <p>Ahora el recorrido va así: ${c(E.recorrido.join(' → '))}.</p>`);
+  }
+
+  if (!rejected){
+    S.tape = -1; S.read = n; S.row = -1;
+    add([27,27],27,'Ya no quedan letras',
+      n ? `<p>El ${c('for')} revisa si quedan letras por leer. Ya se leyeron las ${n}, así que el ciclo <b>termina</b> y Python sigue con la primera línea que está fuera de él.</p>`
+        : `<p>La cadena está vacía: no hay ninguna letra que leer. El ciclo ${c('for')} no da ni una vuelta y la ficha se queda en ${q('p0')}.</p>`);
+
+    const fin = E.estado;
+    add([33,33],33,'Revisión final',
+      `<p>Para decidir el resultado se llama a ${c('es_final')}, preguntando si la casilla donde quedó la ficha (${q(fin)}) es la meta. Python salta a esa función.</p>`);
+
+    S.frames.push({id:'es_final', vars:{estado:fin}});
+    add([21,21],21,'Dentro de es_final',
+      `<p>${c('es_final')} recibe ${c('estado')} = ${q(fin)}.</p>`);
+
+    const ok = fin === 'p8';
+    S.hl = 'p8';
+    add([22,22],22,'¿Es la meta?',
+      `<p>Compara ${q(fin)} con la meta ${q('p8')} usando ${c('==')}, que significa <b>“¿son iguales?”</b>.</p>
+       <p>${ok ? `Sí son iguales, así que devuelve ${c('True')} (verdadero).` : `No son iguales, así que devuelve ${c('False')} (falso).`}</p>`);
+
+    S.frames.pop();
+    const recCopy = E.recorrido.slice();
+    add([33,33],33,'evaluar entrega el resultado',
+      `<p>${c('evaluar')} devuelve dos cosas juntas: el recorrido ${q(recCopy)} y ${c(ok ? 'True' : 'False')}. Con esto la función termina.</p>`);
+
+    S.frames.pop();
+    F('main').vars.recorrido = recCopy; F('main').vars.aceptada = ok;
+    add([39,39],39,'Se guardan los resultados',
+      `<p>De regreso en el programa principal, las dos respuestas se reparten: la lista va a ${c('recorrido')} y ${c(ok ? 'True' : 'False')} va a ${c('aceptada')}.</p>`);
+  }
+
+  const M = F('main').vars, ok = M.aceptada;
+  S.out.push({t:'Recorrido: ' + M.recorrido.join(' -> ')});
+  add([40,40],40,'Mostrar el recorrido',
+    `<p>${c("' -> '.join(recorrido)")} une todas las casillas de la lista en un solo texto, poniendo una flechita entre cada una.</p>
+     <p>${c('print')} lo muestra en la pantalla.</p>`);
+
+  S.out.push({t: ok ? 'La cadena es aceptada' : 'La cadena no es aceptada'});
+  S.verdict = ok;
+  add([41,45], ok ? 42 : 44,'Mostrar el veredicto',
+    `<p>Aunque ocupa varias líneas, es <b>una sola instrucción</b>. Funciona como un “si… si no…”: si ${c('aceptada')} es ${c('True')}, imprime <i>La cadena es aceptada</i>; si es ${c('False')}, imprime <i>La cadena no es aceptada</i>.</p>
+     <p>Aquí ${c('aceptada')} vale ${c(ok ? 'True' : 'False')}, por eso se usa la línea ${ok ? 42 : 44}.</p>`);
+
+  add(null,null,'Fin del programa',
+    `<p><span class="verdict ${ok?'ok':'bad'}">${ok ? 'Cadena aceptada' : 'Cadena no aceptada'}</span></p>
+     <p>Ya no quedan líneas por ejecutar, así que el programa termina. ${ok
+       ? 'La ficha terminó en la meta p8.'
+       : (S.badIdx >= 0 ? 'Se encontró una letra sin transición y se detuvo antes de terminar.' : `La ficha terminó en ${rep(F('main').vars.recorrido.slice(-1)[0])}, que no es la meta.`)}</p>
+     <p>Prueba otra cadena arriba para ver un camino distinto.</p>`);
+  return steps;
+}
+
+/* ---------- Código con colores ---------- */
+const codeEl = document.getElementById('code');
+function hlLine(s){
+  const re = /('[^']*'|"[^"]*")|\b(class|def|return|for|in|if|is|None|else|True|False)\b|\b(self)\b|\b([A-Za-z_]\w*)(?=\()/g;
+  let out = '', last = 0, m;
+  while ((m = re.exec(s))){
+    out += esc(s.slice(last, m.index));
+    const cls = m[1] ? 'st' : m[2] ? 'kw' : m[3] ? 'sf' : 'fn';
+    out += `<span class="${cls}">${esc(m[0])}</span>`;
+    last = re.lastIndex;
+  }
+  return out + esc(s.slice(last));
+}
+codeEl.innerHTML = CODE.map((l,i) =>
+  `<div class="ln" data-n="${i+1}"><span class="no">${i+1}</span><span class="ar"></span><span class="tx">${hlLine(l) || ' '}</span></div>`).join('');
+const lineEls = [...codeEl.children];
+
+/* ---------- Diagrama ---------- */
+const svg = document.getElementById('svg');
+const R = 24, POS = {};
+STATES.forEach((s,k) => { POS[s] = [140 + (k%3)*130, 90 + Math.floor(k/3)*130]; });
+const EDGES = [];
+STATES.forEach(s => ['a','b'].forEach(sym => { const t = T[s][sym]; if (t !== s) EDGES.push({from:s, to:t, sym, key:s+'-'+sym}); }));
+function geom(e){
+  const [x1,y1] = POS[e.from], [x2,y2] = POS[e.to];
+  const dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy), ux=dx/L, uy=dy/L, nx=uy, ny=-ux;
+  const both = T[e.to][e.sym] === e.from, r = R+3;
+  if (!both){
+    return {d:`M${x1+ux*r} ${y1+uy*r} L${x2-ux*r} ${y2-uy*r}`, lx:(x1+x2)/2+nx*12, ly:(y1+y2)/2+ny*12};
+  }
+  const a=0.5, co=Math.cos(a), si=Math.sin(a), off=24;
+  const sx=x1+r*(ux*co+nx*si), sy=y1+r*(uy*co+ny*si);
+  const ex=x2+r*(-ux*co+nx*si), ey=y2+r*(-uy*co+ny*si);
+  const mx=(x1+x2)/2, my=(y1+y2)/2;
+  return {d:`M${sx} ${sy} Q${mx+nx*off*2} ${my+ny*off*2} ${ex} ${ey}`, lx:mx+nx*(off+14), ly:my+ny*(off+14)};
+}
+function drawBase(){
+  let h = `<defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--edge)"/></marker>
+    <marker id="ahOn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--accent)"/></marker>
+    <marker id="ahC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--mark-ink)"/></marker>
+  </defs>`;
+  ['sin a','a impar','a par'].forEach((t,k)=> h += `<text class="axis b" x="${140+k*130}" y="30" text-anchor="middle">${t}</text>`);
+  ['sin b','b impar','b par'].forEach((t,k)=> h += `<text class="axis b" x="8" y="${94+k*130}">${t}</text>`);
+  h += `<text class="axis" x="100" y="70" text-anchor="middle">inicio</text>
+        <path d="M84 90 L110 90" class="edge" marker-end="url(#ah)"/>`;
+  EDGES.forEach(e => { const g = geom(e);
+    h += `<path id="e-${e.key}" class="edge" d="${g.d}" marker-end="url(#ah)"/>
+          <text id="l-${e.key}" class="elab" x="${g.lx}" y="${g.ly}" text-anchor="middle" dominant-baseline="central">${e.sym}</text>`; });
+  STATES.forEach(s => { const [x,y] = POS[s];
+    h += `<g class="node" id="n-${s}"><circle class="o" cx="${x}" cy="${y}" r="${R}"/>${s==='p8' ? `<circle class="i" cx="${x}" cy="${y}" r="${R-5}" style="fill:none"/>` : ''}<text x="${x}" y="${y}">${s}</text></g>`; });
+  h += `<text id="pulse" class="pulse" x="0" y="0"></text>`;
+  svg.innerHTML = h;
+}
+drawBase();
+
+/* ---------- Tabla de transiciones ---------- */
+const lookupEl = document.getElementById('lookup');
+function drawLookup(look, all){
+  let h = `<table class="${all?'all':''}"><caption>self.transiciones</caption><tr><th>estado</th><th>'a'</th><th>'b'</th><th>'c'</th></tr>`;
+  STATES.forEach(s => {
+    const rowOn = look && look.s === s;
+    h += `<tr class="${rowOn?'row':''}"><th>${s}</th>` + ['a','b','c'].map(k =>
+      `<td class="${rowOn && look.c===k ? 'cell-on':''}">${T[s][k]}</td>`).join('') + '</tr>';
+  });
+  if (look && !['a','b','c'].includes(look.c)) h += `<tr><td colspan="4" style="color:var(--bad);font-weight:700">columna ${esc(rep(look.c))}: no existe → None</td></tr>`;
+  lookupEl.innerHTML = h + '</table>';
+}
+
+/* ---------- Render ---------- */
+let steps = [], idx = 0;
+const $ = id => document.getElementById(id);
+function render(){
+  const s = steps[idx], prev = steps[idx-1];
+  // código
+  lineEls.forEach((el,i) => {
+    const n = i+1, on = s.range && n >= s.range[0] && n <= s.range[1];
+    el.classList.toggle('on', !!on);
+    el.classList.toggle('focus', n === s.focus);
+    el.querySelector('.ar').textContent = n === s.focus ? '▶' : '';
+  });
+  if (s.focus){
+    const el = lineEls[s.focus-1];
+    const target = el.offsetTop - codeEl.clientHeight/2 + el.offsetHeight/2;
+    codeEl.scrollTo({top: Math.max(0,target), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+  }
+  // explicación
+  $('xLine').textContent = !s.range ? 'Fin' : s.range[0] === s.range[1] ? `Línea ${s.range[0]}` : `Líneas ${s.range[0]}–${s.range[1]}`;
+  $('xWhere').innerHTML = 'Estás en: <b>' + s.frames.map(f => FRAME_SHORT[f.id]).join(' › ') + '</b>';
+  $('xTitle').textContent = s.title;
+  $('xBody').innerHTML = s.html;
+  // variables
+  const prevVals = {};
+  if (prev) prev.frames.forEach(f => Object.entries(f.vars).forEach(([k,v]) => prevVals[f.id+'.'+k] = JSON.stringify(v)));
+  $('frames').innerHTML = [...s.frames].reverse().map((f,j) => {
+    const rows = Object.entries(f.vars).map(([k,v]) => {
+      const chg = prev && prevVals[f.id+'.'+k] !== JSON.stringify(v);
+      return `<tr class="${chg?'chg':''}"><td>${esc(k)}</td><td>${esc(rep(v))}</td></tr>`;
+    }).join('');
+    return `<div class="frame ${j===0?'top':''}"><div class="ft">${FRAME_LABEL[f.id]}</div>${rows ? `<table>${rows}</table>` : `<div class="empty">Todavía no hay variables aquí.</div>`}</div>`;
+  }).join('');
+  // cinta
+  const cad = steps[0] ? cadNow : '';
+  if (!s.tapeOn) $('tape').innerHTML = `<div class="tape-note" style="margin-top:0">Todavía no se ha pedido la cadena.</div>`;
+  else if (!cad.length) $('tape').innerHTML = `<div class="tape-note" style="margin-top:0">La cadena está vacía: no hay letras que leer.</div>`;
+  else {
+    $('tape').innerHTML = '<div class="tape">' + [...cad].map((ch,i) => {
+      let cl = i === s.badIdx ? 'bad' : i === s.tape ? 'now' : i < s.read ? 'read' : '';
+      return `<div class="cell ${cl}">${esc(ch === ' ' ? '␣' : ch)}<small>${i}</small></div>`;
+    }).join('') + '</div><div class="tape-note">' + (s.tape >= 0 ? `Leyendo la posición ${s.tape}` : s.read >= cad.length && s.read > 0 ? 'Todas las letras ya se leyeron' : 'Esperando a que empiece el ciclo') + '</div>';
+  }
+  // consola
+  $('console').innerHTML = s.out.length ? s.out.map(o => o.i !== undefined
+      ? `<span class="dim">${esc(o.t)}</span><span class="in">${esc(o.i)}</span>`
+      : esc(o.t)).join('\n') : '<span class="dim">(todavía no se muestra nada)</span>';
+  // diagrama
+  EDGES.forEach(e => {
+    const p = $('e-'+e.key), l = $('l-'+e.key);
+    const on = s.edge === e.key, cand = s.candEdge === e.key;
+    p.setAttribute('class', 'edge' + (on ? ' on' : cand ? ' cand' : s.allEdges ? ' lit' : ''));
+    p.setAttribute('marker-end', on || s.allEdges ? 'url(#ahOn)' : cand ? 'url(#ahC)' : 'url(#ah)');
+    l.setAttribute('class', 'elab' + (on ? ' on' : cand ? ' cand' : ''));
+  });
+  STATES.forEach(st => {
+    let cl = 'node';
+    if (s.verdict !== null && st === s.cur) cl += s.verdict ? ' ok' : ' bad';
+    else if (st === s.cur) cl += ' cur';
+    else if (st === s.hl) cl += ' hl';
+    if (st === s.cand && st !== s.cur) cl += ' cand';
+    if (st === s.hl && st !== s.cur) cl += ' hl';
+    $('n-'+st).setAttribute('class', cl);
+  });
+  const pu = $('pulse');
+  if (s.pulse){ const [x,y] = POS[s.pulse]; pu.setAttribute('x', x+20); pu.setAttribute('y', y-28); pu.textContent = '↺ c'; }
+  else pu.textContent = '';
+  drawLookup(s.look, s.lookAll);
+  // tabla de escritorio
+  let h = '<tr><th>Vuelta</th><th>simbolo</th><th>estado antes</th><th>siguiente</th><th>estado después</th><th>recorrido</th></tr>';
+  if (!s.rows.length) h += `<tr><td colspan="6" style="font-family:var(--f-body);color:var(--muted)">Las filas aparecen cuando empieza el ciclo <code>for</code>.</td></tr>`;
+  s.rows.forEach((r,i) => {
+    h += `<tr class="${i===s.row?'now':''}"><td>${r.n}</td><td>${esc(rep(r.sim))}</td><td>${r.antes}</td><td class="${r.sig==='None'?'bad':''}">${esc(r.sig)}</td><td>${esc(r.desp)}</td><td class="${r.rec==='rechazo'?'bad':''}">${esc(r.rec)}</td></tr>`;
+  });
+  $('desk').innerHTML = h;
+  // controles
+  $('cnt').textContent = `Paso ${idx+1} de ${steps.length}`;
+  $('scrub').max = steps.length-1; $('scrub').value = idx;
+  $('bPrev').disabled = idx === 0; $('bReset').disabled = idx === 0;
+  $('bNext').disabled = idx === steps.length-1;
+}
+
+/* ---------- Controles ---------- */
+const SPEEDS = {1:[6500,'Muy lenta'], 2:[4500,'Lenta'], 3:[3000,'Normal'], 4:[1600,'Rápida'], 5:[700,'Muy rápida']};
+let timer = null, playing = false, cadNow = 'abab';
+function go(i){ idx = Math.max(0, Math.min(steps.length-1, i)); render(); }
+function setPlay(p){
+  playing = p; clearTimeout(timer);
+  $('playIco').textContent = p ? '⏸' : '▶';
+  $('playLbl').textContent = p ? 'Pausa' : 'Automático';
+  if (p) schedule();
+}
+function schedule(){
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    if (!playing) return;
+    if (idx < steps.length-1){ go(idx+1); schedule(); } else setPlay(false);
+  }, SPEEDS[$('speed').value][0]);
+}
+$('bPlay').onclick = () => { if (playing) setPlay(false); else { if (idx >= steps.length-1) go(0); setPlay(true); } };
+$('bNext').onclick = () => { setPlay(false); go(idx+1); };
+$('bPrev').onclick = () => { setPlay(false); go(idx-1); };
+$('bReset').onclick = () => { setPlay(false); go(0); };
+$('scrub').oninput = e => { setPlay(false); go(+e.target.value); };
+$('speed').oninput = e => { $('speedOut').textContent = SPEEDS[e.target.value][1]; if (playing) schedule(); };
+function load(v){
+  cadNow = v; setPlay(false); steps = build(v); go(0);
+}
+let deb;
+$('cad').addEventListener('input', e => { clearTimeout(deb); deb = setTimeout(() => load(e.target.value), 350); });
+document.querySelectorAll('.chip').forEach(b => b.onclick = () => { $('cad').value = b.dataset.v; load(b.dataset.v); });
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
+  if (e.key === 'ArrowRight'){ e.preventDefault(); $('bNext').click(); }
+  else if (e.key === 'ArrowLeft'){ e.preventDefault(); $('bPrev').click(); }
+  else if (e.key === ' ' && e.target.tagName !== 'BUTTON'){ e.preventDefault(); $('bPlay').click(); }
+});
+load($('cad').value);
+</script>
+
+</body></html>
